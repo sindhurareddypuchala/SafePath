@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # SafePath FastAPI Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: safepath-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=safepath_db
+      - POSTGRES_USER=safepath_user
+      - POSTGRES_PASSWORD=safepath_password_dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend:/app
+
+  # SafePath React + Vite Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: safepath-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  # PostgreSQL + PostGIS Spatial Database
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: safepath-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=safepath_db
+      - POSTGRES_USER=safepath_user
+      - POSTGRES_PASSWORD=safepath_password_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis Cache & Ephemeral Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: safepath-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Placeholders for future routing engine (Valhalla/OSRM)
+  # Uncomment and configure when OSM map PBF extraction pipeline is integrated.
+  # routing-engine:
+  #   image: valhalla/valhalla:latest
+  #   container_name: safepath-routing
+  #   ports:
+  #     - "8002:8002"
+
+volumes:
+  postgres_data:
+  redis_data:

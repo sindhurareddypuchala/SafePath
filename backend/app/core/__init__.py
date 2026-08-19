@@ -1,0 +1,1 @@
+"""SafePath Core Application Package"""
