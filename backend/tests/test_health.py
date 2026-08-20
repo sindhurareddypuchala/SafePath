@@ -14,4 +14,8 @@ def test_readiness_check():
     response = client.get("/health/readiness")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "ready"
+    assert data["status"] in ("ready", "degraded")
+    assert "database" in data
+    assert "status" in data["database"]
+    assert "postgres" in data["database"]
+    assert "postgis" in data["database"]

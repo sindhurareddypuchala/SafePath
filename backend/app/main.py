@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.router import api_router
+from app.database.session import check_database_health
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -33,10 +34,16 @@ async def liveness_check():
 
 @app.get("/health/readiness", tags=["Health"])
 async def readiness_check():
-    """Readiness probe checking application state."""
+    """
+    Readiness probe verifying database connectivity and PostGIS status
+    without exposing sensitive credentials.
+    """
+    db_health = await check_database_health()
+    overall_status = "ready" if db_health.get("status") == "connected" else "degraded"
+    
     return {
-        "status": "ready",
-        "database": "configured_placeholder",
+        "status": overall_status,
+        "database": db_health,
         "redis": "configured_placeholder"
     }
 
