@@ -4,9 +4,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db_session
-from app.modules.auth.schemas import UserRegisterRequest, UserRegisterResponse
-from app.modules.auth.security import hash_password
+from app.modules.auth.schemas import (
+    UserLoginRequest,
+    UserLoginResponse,
+    UserRegisterRequest,
+    UserRegisterResponse,
+)
+from app.modules.auth.security import hash_password, verify_password
+from app.modules.auth.tokens import create_access_token
 from app.modules.users.models import User, UserProfile, UserPreference
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -71,4 +78,43 @@ async def register_user(
         email=user.email,
         account_status=user.account_status,
         display_name=display_name,
+    )
+
+
+@router.post(
+    "/login",
+    response_model=UserLoginResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def login_user(
+    payload: UserLoginRequest,
+    db: AsyncSession = Depends(get_db_session),
+) -> UserLoginResponse:
+    email = str(payload.email).strip().lower()
+
+    user = await db.scalar(
+        select(User).where(User.email == email)
+    )
+
+    if user is None or not verify_password(
+        payload.password,
+        user.password_hash,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if user.account_status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account is not active.",
+        )
+
+    access_token = create_access_token(str(user.user_id))
+
+    return UserLoginResponse(
+        access_token=access_token,
+        token_type="bearer",
     )

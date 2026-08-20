@@ -86,3 +86,73 @@ def test_register_duplicate_email(client, unique_email):
     )
 
     assert second_response.status_code == 409
+
+
+def test_login_success(client, unique_email):
+    password = "SafePath_Login_123!"
+
+    register_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": unique_email,
+            "password": password,
+            "display_name": "Login Test User",
+        },
+    )
+
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": unique_email,
+            "password": password,
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    data = login_response.json()
+
+    assert data["token_type"] == "bearer"
+    assert isinstance(data["access_token"], str)
+    assert len(data["access_token"]) > 0
+
+
+def test_login_wrong_password(client, unique_email):
+    password = "SafePath_Login_456!"
+
+    register_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": unique_email,
+            "password": password,
+            "display_name": "Wrong Password User",
+        },
+    )
+
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": unique_email,
+            "password": "WrongPassword_123!",
+        },
+    )
+
+    assert login_response.status_code == 401
+    assert login_response.json()["detail"] == "Invalid email or password."
+
+
+def test_login_nonexistent_user(client):
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": f"missing-{uuid4().hex}@safepath.com",
+            "password": "SafePath_Test_123!",
+        },
+    )
+
+    assert login_response.status_code == 401
+    assert login_response.json()["detail"] == "Invalid email or password."
